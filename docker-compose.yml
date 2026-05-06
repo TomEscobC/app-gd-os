@@ -1,0 +1,47 @@
+services:
+
+  # ── API Node.js ───────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: app-gd-os-backend
+    ports:
+      - '3000:3000'
+    env_file:
+      - ./backend/.env
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - gd-network
+    restart: unless-stopped
+
+  # ── PostgreSQL ────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: app-gd-os-db
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB:       ${POSTGRES_DB:-app_gd_os}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gd-network
+    restart: unless-stopped
+
+networks:
+  gd-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
