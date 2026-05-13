@@ -24,8 +24,12 @@ export default function AppLayout() {
         ),
       }}
     >
-      <Stack.Screen name="ruta"      options={{ title: 'Mi Ruta del Día' }} />
-      <Stack.Screen name="completar" options={{ title: 'Completar Instalación' }} />
+      <Stack.Screen name="ruta"          options={{ title: 'Mi Ruta del Día' }} />
+      <Stack.Screen name="completar"     options={{ title: 'Completar Instalación' }} />
+      <Stack.Screen name="dashboard"     options={{ title: 'Dashboard' }} />
+      <Stack.Screen name="cotizaciones"  options={{ title: 'Cotizaciones' }} />
+      <Stack.Screen name="mapa"          options={{ title: 'Instaladores en Terreno' }} />
+      <Stack.Screen name="alertas"       options={{ title: 'Alertas IoT' }} />
     </Stack>
   );
 }

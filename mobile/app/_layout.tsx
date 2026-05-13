@@ -19,7 +19,8 @@ export default function RootLayout() {
     if (!token && !enAuth) {
       router.replace('/(auth)/login');
     } else if (token && enAuth) {
-      router.replace('/(app)/ruta');
+      const destino = usuario?.rol === 'instalador' ? '/(app)/ruta' : '/(app)/dashboard';
+      router.replace(destino as any);
     }
   }, [token, loading, segments]);
 

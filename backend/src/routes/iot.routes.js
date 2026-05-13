@@ -20,6 +20,16 @@ router.post('/plotter/:id/estado',
   iotController.recibirEstado
 );
 
-router.post('/alerta/:id/resolver', iotController.resolverAlerta);
+router.get('/alertas/activas',
+  require('../middlewares/auth.middleware').verifyToken,
+  require('../middlewares/role.middleware').requireRole('admin', 'superadmin'),
+  iotController.alertasActivas
+);
+
+router.post('/alerta/:id/resolver',
+  require('../middlewares/auth.middleware').verifyToken,
+  require('../middlewares/role.middleware').requireRole('admin', 'superadmin'),
+  iotController.resolverAlerta
+);
 
 module.exports = router;

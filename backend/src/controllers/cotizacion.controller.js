@@ -1,5 +1,13 @@
 const cotizacionService = require('../services/cotizacion.service');
 
+const listar = async (req, res, next) => {
+  try {
+    const { estado, fecha } = req.query;
+    const cotizaciones = await cotizacionService.listarCotizaciones({ estado, fecha });
+    res.json({ success: true, message: 'Cotizaciones obtenidas', data: cotizaciones });
+  } catch (err) { next(err); }
+};
+
 const aprobar = async (req, res, next) => {
   try {
     const cotizacion = await cotizacionService.actualizarEstado(req.params.id, 'aprobada');
@@ -18,4 +26,4 @@ const rechazar = async (req, res, next) => {
   }
 };
 
-module.exports = { aprobar, rechazar };
+module.exports = { listar, aprobar, rechazar };

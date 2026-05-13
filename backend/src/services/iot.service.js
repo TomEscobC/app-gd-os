@@ -43,19 +43,45 @@ const detectarTipoAlerta = ({ tiene_atasco, porcentaje_avance, tipo }) => {
   return null;
 };
 
+const getAlertasActivas = async () => {
+  const result = await query(
+    `SELECT a.*, p.modelo AS plotter_modelo, p.ubicacion AS plotter_ubicacion
+     FROM alerta_iot a
+     JOIN plotter p ON a.plotter_id = p.id
+     WHERE a.resuelta = false
+     ORDER BY a.timestamp DESC`
+  );
+  return result.rows;
+};
+
 const notificarAdmins = async (plotter, alerta) => {
   try {
     const admins = await query(
-      `SELECT * FROM usuario_admin WHERE rol IN ('admin', 'superadmin') AND telefono IS NOT NULL`
+      `SELECT * FROM usuario_admin WHERE rol IN ('admin', 'superadmin')`
     );
 
     const mensaje = buildMensajeAlerta(plotter, alerta);
 
     for (const admin of admins.rows) {
-      await whatsappService.enviarMensaje(admin.telefono, mensaje);
+      if (admin.telefono) await whatsappService.enviarMensaje(admin.telefono, mensaje);
+      if (admin.push_token) await enviarPushNotification(admin.push_token, plotter, alerta);
     }
   } catch (err) {
     console.error('[IoT] Error notificando admins:', err.message);
+  }
+};
+
+const enviarPushNotification = async (pushToken, plotter, alerta) => {
+  try {
+    const iconos = { atasco: '🔴', tinta_baja: '🟡' };
+    await axios.post('https://exp.host/--/api/v2/push/send', {
+      to:    pushToken,
+      title: `${iconos[alerta.tipo] || '⚠️'} Alerta IoT — ${plotter.modelo}`,
+      body:  alerta.descripcion,
+      data:  { alertaId: alerta.id, tipo: alerta.tipo },
+    }, { headers: { 'Content-Type': 'application/json' } });
+  } catch (err) {
+    console.error('[Push] Error enviando notificación:', err.message);
   }
 };
 
@@ -83,4 +109,4 @@ const resolverAlerta = async (alertaId) => {
   return result.rows[0];
 };
 
-module.exports = { procesarEstado, resolverAlerta };
+module.exports = { procesarEstado, resolverAlerta, getAlertasActivas };

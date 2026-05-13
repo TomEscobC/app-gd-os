@@ -16,4 +16,14 @@ router.post(
   authController.login
 );
 
+router.post(
+  '/push-token',
+  [
+    require('../middlewares/auth.middleware').verifyToken,
+    body('push_token').notEmpty().withMessage('push_token requerido'),
+    validate,
+  ],
+  authController.savePushToken
+);
+
 module.exports = router;

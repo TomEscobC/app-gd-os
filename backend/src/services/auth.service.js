@@ -41,4 +41,9 @@ const login = async (email, password, tipo) => {
   };
 };
 
-module.exports = { login };
+const savePushToken = async (userId, rol, pushToken) => {
+  const tabla = rol === 'instalador' ? 'instalador' : 'usuario_admin';
+  await query(`UPDATE ${tabla} SET push_token = $1 WHERE id = $2`, [pushToken, userId]);
+};
+
+module.exports = { login, savePushToken };

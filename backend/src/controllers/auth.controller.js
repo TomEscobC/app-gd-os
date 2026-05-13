@@ -10,4 +10,12 @@ const login = async (req, res, next) => {
   }
 };
 
-module.exports = { login };
+const savePushToken = async (req, res, next) => {
+  try {
+    const { push_token } = req.body;
+    await authService.savePushToken(req.user.id, req.user.rol, push_token);
+    res.json({ success: true, message: 'Push token guardado', data: null });
+  } catch (err) { next(err); }
+};
+
+module.exports = { login, savePushToken };

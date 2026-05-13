@@ -37,4 +37,33 @@ const getCotizacionById = async (id) => {
   return result.rows[0];
 };
 
-module.exports = { actualizarEstado, crearCotizacion, getCotizacionById };
+const listarCotizaciones = async ({ estado, fecha } = {}) => {
+  let where = 'WHERE 1=1';
+  const params = [];
+
+  if (estado) {
+    params.push(estado);
+    where += ` AND c.estado = $${params.length}`;
+  }
+
+  if (fecha === 'hoy' || !fecha) {
+    where += ` AND DATE(c.fecha) = CURRENT_DATE`;
+  } else if (fecha === 'semana') {
+    where += ` AND c.fecha >= NOW() - INTERVAL '7 days'`;
+  } else if (fecha === 'mes') {
+    where += ` AND c.fecha >= NOW() - INTERVAL '30 days'`;
+  }
+
+  const result = await query(
+    `SELECT c.*, cl.nombre AS cliente_nombre, cl.telefono AS cliente_telefono
+     FROM cotizacion c
+     JOIN cliente cl ON c.cliente_id = cl.id
+     ${where}
+     ORDER BY c.fecha DESC`,
+    params
+  );
+
+  return result.rows;
+};
+
+module.exports = { actualizarEstado, crearCotizacion, getCotizacionById, listarCotizaciones };

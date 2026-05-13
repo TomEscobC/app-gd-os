@@ -1,0 +1,13 @@
+APP-GD-OS — Global Design Operating System
+==========================================
+
+Integrantes del Proyecto
+------------------------
+
+- Tomás Escobar
+- Matías Ampuero
+
+Institución : Duoc UC
+Carrera     : Ingeniería en Informática
+Asignatura  : Proyecto de Título / Desarrollo de Aplicaciones
+Año         : 2026

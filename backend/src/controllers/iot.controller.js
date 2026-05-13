@@ -18,4 +18,11 @@ const resolverAlerta = async (req, res, next) => {
   }
 };
 
-module.exports = { recibirEstado, resolverAlerta };
+const alertasActivas = async (req, res, next) => {
+  try {
+    const alertas = await iotService.getAlertasActivas();
+    res.json({ success: true, message: 'Alertas activas obtenidas', data: alertas });
+  } catch (err) { next(err); }
+};
+
+module.exports = { recibirEstado, resolverAlerta, alertasActivas };

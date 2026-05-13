@@ -1,8 +1,23 @@
 require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
+const express   = require('express');
+const cors      = require('cors');
+const helmet    = require('helmet');
+const morgan    = require('morgan');
+const rateLimit = require('express-rate-limit');
+
+const limiterGeneral = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Demasiadas solicitudes, intenta en 15 minutos', data: null },
+});
+
+const limiterAuth = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { success: false, message: 'Demasiados intentos de login, intenta en 15 minutos', data: null },
+});
 
 const authRoutes       = require('./src/routes/auth.routes');
 const webhookRoutes    = require('./src/routes/webhook.routes');
@@ -20,8 +35,9 @@ app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(limiterGeneral);
 
-app.use('/auth',       authRoutes);
+app.use('/auth',       limiterAuth, authRoutes);
 app.use('/webhook',    webhookRoutes);
 app.use('/cotizacion', cotizacionRoutes);
 app.use('/instalador', instaladorRoutes);
