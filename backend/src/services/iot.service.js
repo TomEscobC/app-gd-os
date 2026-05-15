@@ -1,3 +1,4 @@
+const axios = require('axios');
 const { query } = require('../config/database');
 const { AppError } = require('../middlewares/error.middleware');
 const whatsappService = require('./whatsapp.service');
@@ -109,4 +110,15 @@ const resolverAlerta = async (alertaId) => {
   return result.rows[0];
 };
 
-module.exports = { procesarEstado, resolverAlerta, getAlertasActivas };
+// Consulta liviana del estado de una alerta. Usada por el simulador IoT
+// para hacer polling y reanudar operación tras una resolución manual.
+const getEstadoAlerta = async (alertaId) => {
+  const result = await query(
+    'SELECT id, tipo, resuelta, timestamp FROM alerta_iot WHERE id = $1',
+    [alertaId]
+  );
+  if (result.rowCount === 0) throw new AppError('Alerta no encontrada', 404);
+  return result.rows[0];
+};
+
+module.exports = { procesarEstado, resolverAlerta, getAlertasActivas, getEstadoAlerta };

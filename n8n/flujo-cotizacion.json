@@ -1,0 +1,284 @@
+{
+  "name": "APP-GD-OS — Flujo Cotización WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-cotizacion",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-whatsapp-in",
+      "name": "Webhook WhatsApp In",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "webhookId": "whatsapp-cotizacion-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrae datos del payload de WhatsApp Business API\nconst entry = $input.first().json.entry?.[0];\nconst change = entry?.changes?.[0]?.value;\nconst mensaje = change?.messages?.[0];\nconst contacto = change?.contacts?.[0];\n\nif (!mensaje) {\n  return [{ json: { skip: true, motivo: 'sin_mensaje' } }];\n}\n\nconst texto = mensaje.text?.body?.trim() || '';\nconst telefono = mensaje.from;\nconst nombre = contacto?.profile?.name || 'Cliente';\nconst tipo = mensaje.type;\n\n// Determina la intención del mensaje\nlet intencion = 'cotizar';\nconst t = texto.toLowerCase();\nif (/^(si|sí|aprobar|aprobado|aceptar|ok)\\b/i.test(t)) intencion = 'aprobar';\nelse if (/^(no|rechazar|rechazado|cancelar)\\b/i.test(t)) intencion = 'rechazar';\n\nreturn [{\n  json: {\n    telefono,\n    nombre,\n    texto,\n    tipo,\n    intencion,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "extraer-datos",
+      "name": "Extraer datos del mensaje",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-cotizar",
+              "leftValue": "={{ $json.intencion }}",
+              "rightValue": "cotizar",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "switch-intencion",
+      "name": "¿Qué intención?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_URL }}/cotizacion/generar",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "telefono", "value": "={{ $json.telefono }}" },
+            { "name": "nombre_cliente", "value": "={{ $json.nombre }}" },
+            { "name": "descripcion", "value": "={{ $json.texto }}" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "fullResponse": false } }
+        }
+      },
+      "id": "generar-cotizacion",
+      "name": "Generar cotización (IA)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Construye el resumen de cotización para enviar al cliente\nconst cot = $input.first().json.data;\nconst items = (cot.items_detalle || cot.items || [])\n  .map((it, i) => `${i + 1}. ${it.descripcion}: $${Number(it.precio).toLocaleString('es-CL')}`)\n  .join('\\n');\n\nconst total = Number(cot.total).toLocaleString('es-CL');\n\nconst mensaje = `🎨 *Cotización Global Design*\\n\\n` +\n  `Hola ${cot.cliente_nombre || ''}, esta es tu cotización:\\n\\n` +\n  `${items}\\n\\n` +\n  `💰 *Total: $${total}*\\n\\n` +\n  `Responde *SI* para aprobar o *NO* para rechazar.\\n` +\n  `_ID cotización: ${cot.id}_`;\n\nreturn [{\n  json: {\n    cotizacion_id: cot.id,\n    telefono: cot.cliente_telefono || $('Extraer datos del mensaje').first().json.telefono,\n    mensaje,\n    total: cot.total,\n    pdf_url: cot.pdf_url || null\n  }\n}];"
+      },
+      "id": "formatear-cotizacion",
+      "name": "Formatear respuesta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v18.0/{{ $env.WHATSAPP_PHONE_ID }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.WHATSAPP_TOKEN }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.telefono }}\",\n  \"type\": \"text\",\n  \"text\": { \"body\": {{ JSON.stringify($json.mensaje) }} }\n}",
+        "options": {}
+      },
+      "id": "enviar-cotizacion-wa",
+      "name": "Enviar cotización por WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrae el ID de cotización mencionado en el mensaje del cliente\nconst texto = $('Extraer datos del mensaje').first().json.texto || '';\nconst match = texto.match(/(?:ID|cotización)\\s*:?\\s*(\\d+)/i) || texto.match(/\\b(\\d{1,6})\\b/);\nconst id = match ? parseInt(match[1], 10) : null;\nreturn [{ json: { ...($input.first().json), cotizacion_id: id } }];"
+      },
+      "id": "extraer-id-cot",
+      "name": "Extraer ID cotización",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-aprobar",
+              "leftValue": "={{ $('Extraer datos del mensaje').first().json.intencion }}",
+              "rightValue": "aprobar",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-aprobar",
+      "name": "¿Aprobar o rechazar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_URL }}/cotizacion/{{ $json.cotizacion_id }}/aprobar",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-WhatsApp-Token", "value": "={{ $env.WEBHOOK_SECRET }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "aprobar-cotizacion",
+      "name": "Aprobar cotización",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 320]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_URL }}/cotizacion/{{ $json.cotizacion_id }}/rechazar",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-WhatsApp-Token", "value": "={{ $env.WEBHOOK_SECRET }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "rechazar-cotizacion",
+      "name": "Rechazar cotización",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 480]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v18.0/{{ $env.WHATSAPP_PHONE_ID }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.WHATSAPP_TOKEN }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $('Extraer datos del mensaje').first().json.telefono }}\",\n  \"type\": \"text\",\n  \"text\": { \"body\": \"✅ Cotización aprobada. Te contactaremos para coordinar la instalación.\" }\n}",
+        "options": {}
+      },
+      "id": "confirmar-aprobacion",
+      "name": "Confirmar aprobación cliente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 320]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v18.0/{{ $env.WHATSAPP_PHONE_ID }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.WHATSAPP_TOKEN }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $('Extraer datos del mensaje').first().json.telefono }}\",\n  \"type\": \"text\",\n  \"text\": { \"body\": \"❌ Cotización rechazada. Si cambias de opinión, escríbenos nuevamente.\" }\n}",
+        "options": {}
+      },
+      "id": "confirmar-rechazo",
+      "name": "Confirmar rechazo cliente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 480]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"success\": true, \"processed\": true }",
+        "options": {}
+      },
+      "id": "responder-webhook",
+      "name": "Responder Meta",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1780, 380]
+    }
+  ],
+  "connections": {
+    "Webhook WhatsApp In": {
+      "main": [[{ "node": "Extraer datos del mensaje", "type": "main", "index": 0 }]]
+    },
+    "Extraer datos del mensaje": {
+      "main": [[{ "node": "¿Qué intención?", "type": "main", "index": 0 }]]
+    },
+    "¿Qué intención?": {
+      "main": [
+        [{ "node": "Generar cotización (IA)", "type": "main", "index": 0 }],
+        [{ "node": "Extraer ID cotización", "type": "main", "index": 0 }]
+      ]
+    },
+    "Generar cotización (IA)": {
+      "main": [[{ "node": "Formatear respuesta", "type": "main", "index": 0 }]]
+    },
+    "Formatear respuesta": {
+      "main": [[{ "node": "Enviar cotización por WhatsApp", "type": "main", "index": 0 }]]
+    },
+    "Enviar cotización por WhatsApp": {
+      "main": [[{ "node": "Responder Meta", "type": "main", "index": 0 }]]
+    },
+    "Extraer ID cotización": {
+      "main": [[{ "node": "¿Aprobar o rechazar?", "type": "main", "index": 0 }]]
+    },
+    "¿Aprobar o rechazar?": {
+      "main": [
+        [{ "node": "Aprobar cotización", "type": "main", "index": 0 }],
+        [{ "node": "Rechazar cotización", "type": "main", "index": 0 }]
+      ]
+    },
+    "Aprobar cotización": {
+      "main": [[{ "node": "Confirmar aprobación cliente", "type": "main", "index": 0 }]]
+    },
+    "Rechazar cotización": {
+      "main": [[{ "node": "Confirmar rechazo cliente", "type": "main", "index": 0 }]]
+    },
+    "Confirmar aprobación cliente": {
+      "main": [[{ "node": "Responder Meta", "type": "main", "index": 0 }]]
+    },
+    "Confirmar rechazo cliente": {
+      "main": [[{ "node": "Responder Meta", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "versionId": "1.0.0",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "app-gd-os"
+  },
+  "tags": [
+    { "name": "app-gd-os" },
+    { "name": "whatsapp" },
+    { "name": "cotizaciones" }
+  ]
+}

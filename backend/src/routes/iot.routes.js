@@ -32,4 +32,7 @@ router.post('/alerta/:id/resolver',
   iotController.resolverAlerta
 );
 
+// Estado liviano de una alerta (uso del simulador IoT para polling).
+router.get('/alerta/:id/estado', iotController.estadoAlerta);
+
 module.exports = router;

@@ -135,7 +135,9 @@ curl http://localhost:3000/health
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | POST | `/iot/plotter/:id/estado` | Payload del plotter cada 30 s |
-| POST | `/iot/alerta/:id/resolver` | Marcar alerta como resuelta |
+| GET  | `/iot/alertas/activas` | Listar alertas sin resolver (admin) |
+| POST | `/iot/alerta/:id/resolver` | Marcar alerta como resuelta (admin) |
+| GET  | `/iot/alerta/:id/estado` | Estado liviano (uso del simulador IoT) |
 
 **Payload estado plotter:**
 ```json
@@ -205,6 +207,47 @@ Cliente escribe "quiero cotizar un letrero LED de 2m²"
                            └─ Cliente responde "APROBAR"
                                 └─ Actualiza cotizacion a estado: aprobada
 ```
+
+---
+
+## 🤖 Simulador IoT (demo)
+
+Para demostrar el flujo de alertas IoT sin hardware real, el backend incluye un
+simulador que envía telemetría periódica al endpoint `/iot/plotter/:id/estado`.
+
+```bash
+# Contra el backend local
+cd backend
+npm run simulate
+
+# Contra producción (Render)
+npm run simulate:prod
+
+# Con plotters específicos e intervalo custom
+PLOTTER_IDS=1,2 INTERVAL_SEG=15 npm run simulate
+```
+
+Genera con probabilidad configurable atascos y alertas de tinta baja.
+Cuando dispara un atasco, hace **polling** al endpoint
+`GET /iot/alerta/:id/estado` y reanuda la operación normal **una vez que el
+admin resuelve la alerta desde la app móvil**, demostrando el ciclo completo
+de detección → notificación → resolución.
+
+---
+
+## 📡 Orquestación WhatsApp con n8n
+
+El directorio `n8n/` contiene el flujo `flujo-cotizacion.json` importable que
+maneja:
+
+- Recepción del mensaje del cliente vía webhook de Meta
+- Detección de intención (cotizar / aprobar / rechazar)
+- Llamada al backend para generar la cotización con IA
+- Formateo y envío de la respuesta al cliente
+- Manejo de aprobación / rechazo y confirmación al cliente
+- Notificación al admin cuando una cotización es aprobada
+
+Ver instrucciones de importación y configuración en [`n8n/README.md`](./n8n/README.md).
 
 ---
 

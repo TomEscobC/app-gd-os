@@ -5,7 +5,9 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "dev": "nodemon app.js"
+    "dev": "nodemon app.js",
+    "simulate": "node src/scripts/plotter-simulator.js",
+    "simulate:prod": "API_URL=https://app-gd-os.onrender.com node src/scripts/plotter-simulator.js"
   },
   "dependencies": {
     "axios": "^1.6.2",

@@ -25,4 +25,13 @@ const alertasActivas = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { recibirEstado, resolverAlerta, alertasActivas };
+// Endpoint público liviano consumido por el simulador IoT para polling.
+// No expone datos sensibles, sólo el estado de resolución de la alerta.
+const estadoAlerta = async (req, res, next) => {
+  try {
+    const alerta = await iotService.getEstadoAlerta(req.params.id);
+    res.json({ success: true, message: 'Estado obtenido', data: alerta });
+  } catch (err) { next(err); }
+};
+
+module.exports = { recibirEstado, resolverAlerta, alertasActivas, estadoAlerta };

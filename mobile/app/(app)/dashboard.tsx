@@ -6,15 +6,6 @@ import {
 import { useRouter } from 'expo-router';
 import api from '../../src/api/client';
 import { useAuthStore } from '../../src/store/auth.store';
-import * as Notifications from 'expo-notifications';
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
 
 interface Resumen {
   cotizaciones: { aprobadas: string; pendientes: string; rechazadas: string; total: string; monto_aprobado: string };
@@ -28,15 +19,6 @@ export default function DashboardScreen() {
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false);
-
-  const registrarPushToken = async () => {
-    try {
-      const { status } = await Notifications.requestPermissionsAsync();
-      if (status !== 'granted') return;
-      const token = (await Notifications.getExpoPushTokenAsync()).data;
-      await api.post('/auth/push-token', { push_token: token });
-    } catch {}
-  };
 
   const cargar = useCallback(async () => {
     try {
@@ -52,7 +34,6 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     cargar();
-    registrarPushToken();
     const intervalo = setInterval(cargar, 30000);
     return () => clearInterval(intervalo);
   }, []);

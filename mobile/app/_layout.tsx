@@ -3,7 +3,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { useAuthStore } from '../src/store/auth.store';
 
 export default function RootLayout() {
-  const { token, loading, cargarSesion } = useAuthStore();
+  const { token, usuario, loading, cargarSesion } = useAuthStore();
   const router   = useRouter();
   const segments = useSegments();
 

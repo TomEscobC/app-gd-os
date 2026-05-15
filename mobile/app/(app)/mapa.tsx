@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
-import MapView, { Marker, Callout } from 'react-native-maps';
+import { WebView } from 'react-native-webview';
 import api from '../../src/api/client';
 
 export default function MapaScreen() {
@@ -27,50 +27,67 @@ export default function MapaScreen() {
     return () => clearInterval(intervalo);
   }, []);
 
-  if (cargando) return <View style={s.centrado}><ActivityIndicator size="large" color="#1E3A8A" /></View>;
+  const generarHTML = (instaladores: any[]) => {
+    const centro = instaladores.length > 0
+      ? [Number(instaladores[0].ultima_latitud), Number(instaladores[0].ultima_longitud)]
+      : [-33.4489, -70.6693];
 
-  const region = instaladores.length > 0
-    ? {
-        latitude:       Number(instaladores[0].ultima_latitud),
-        longitude:      Number(instaladores[0].ultima_longitud),
-        latitudeDelta:  0.05,
-        longitudeDelta: 0.05,
-      }
-    : { latitude: -33.4489, longitude: -70.6693, latitudeDelta: 0.1, longitudeDelta: 0.1 };
+    const marcadores = instaladores.map((inst) => `
+      L.marker([${inst.ultima_latitud}, ${inst.ultima_longitud}])
+        .addTo(map)
+        .bindPopup('<b>👷 ${inst.nombre}</b><br>${inst.completadas_hoy || 0}/${inst.instalaciones_hoy || 0} completadas hoy')
+        .openPopup();
+    `).join('\n');
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    #map { width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    const map = L.map('map').setView([${centro[0]}, ${centro[1]}], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap',
+      maxZoom: 19
+    }).addTo(map);
+    ${marcadores}
+  </script>
+</body>
+</html>`;
+  };
+
+  if (cargando) {
+    return <View style={s.centrado}><ActivityIndicator size="large" color="#1E3A8A" /></View>;
+  }
 
   return (
     <View style={s.container}>
-      <MapView style={s.mapa} initialRegion={region} showsUserLocation>
-        {instaladores.map((inst) => (
-          <Marker
-            key={inst.id}
-            coordinate={{
-              latitude:  Number(inst.ultima_latitud),
-              longitude: Number(inst.ultima_longitud),
-            }}
-            title={inst.nombre}
-            pinColor="#1E3A8A"
-          >
-            <Callout>
-              <View style={s.callout}>
-                <Text style={s.calloutNombre}>👷 {inst.nombre}</Text>
-                <Text style={s.calloutSub}>
-                  {inst.completadas_hoy}/{inst.instalaciones_hoy} completadas hoy
-                </Text>
-              </View>
-            </Callout>
-          </Marker>
-        ))}
-      </MapView>
-
-      {/* Leyenda */}
+      {/* Leyenda superior */}
       <View style={s.leyenda}>
-        <Text style={s.leyendaTitulo}>Instaladores activos: {instaladores.length}</Text>
+        <Text style={s.leyendaTitulo}>👷 Instaladores activos: {instaladores.length}</Text>
         <TouchableOpacity onPress={cargar}>
           <Text style={s.actualizar}>↻ Actualizar</Text>
         </TouchableOpacity>
       </View>
 
+      {/* Mapa */}
+      <WebView
+        source={{ html: generarHTML(instaladores) }}
+        style={s.mapa}
+        originWhitelist={['*']}
+        javaScriptEnabled
+      />
+
+      {/* Sin datos */}
       {instaladores.length === 0 && (
         <View style={s.sinDatos}>
           <Text style={s.sinDatosTxt}>Sin instaladores con ubicación registrada hoy</Text>
@@ -84,14 +101,15 @@ const s = StyleSheet.create({
   container: { flex: 1 },
   centrado:  { flex: 1, justifyContent: 'center', alignItems: 'center' },
   mapa:      { flex: 1 },
-  callout:   { padding: 8, minWidth: 160 },
-  calloutNombre: { fontWeight: '700', fontSize: 13, color: '#1E293B' },
-  calloutSub:    { fontSize: 11, color: '#64748B', marginTop: 2 },
   leyenda: {
-    position: 'absolute', top: 16, left: 16, right: 16,
-    backgroundColor: 'white', borderRadius: 10, padding: 12,
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 4,
+    backgroundColor: 'white',
+    padding: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderColor: '#E2E8F0',
+    zIndex: 10,
   },
   leyendaTitulo: { fontSize: 13, fontWeight: '700', color: '#1E3A8A' },
   actualizar:    { fontSize: 13, color: '#3B82F6', fontWeight: '600' },
