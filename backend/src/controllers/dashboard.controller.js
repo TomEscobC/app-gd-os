@@ -9,4 +9,14 @@ const getResumen = async (req, res, next) => {
   }
 };
 
-module.exports = { getResumen };
+const getReportes = async (req, res, next) => {
+  try {
+    const periodo = (req.query.periodo || 'hoy').toString().toLowerCase();
+    const reporte = await dashboardService.getReportes(periodo);
+    res.json({ success: true, message: 'Reporte generado', data: reporte });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getResumen, getReportes };

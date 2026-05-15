@@ -2,13 +2,14 @@ const instalacionService = require('../services/instalacion.service');
 
 const completar = async (req, res, next) => {
   try {
-    const { latitud, longitud } = req.body;
+    const { latitud, longitud, firma_base64 } = req.body;
     const foto_evidencia_url = req.file ? req.file.path : null;
 
     const instalacion = await instalacionService.completarInstalacion(req.params.id, {
       latitud,
       longitud,
       foto_evidencia_url,
+      firma_base64,
     });
 
     res.json({ success: true, message: 'Instalación completada', data: instalacion });

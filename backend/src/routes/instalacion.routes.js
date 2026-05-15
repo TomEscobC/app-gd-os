@@ -17,6 +17,9 @@ router.post('/:id/completar',
     body('longitud')
       .notEmpty().withMessage('Longitud requerida')
       .isFloat({ min: -180, max: 180 }).withMessage('Longitud inválida'),
+    body('firma_base64')
+      .optional()
+      .isString().withMessage('firma_base64 debe ser una cadena base64'),
     validate,
   ],
   instalacionController.completar

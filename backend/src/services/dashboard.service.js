@@ -1,5 +1,7 @@
 const { query } = require('../config/database');
+const { AppError } = require('../middlewares/error.middleware');
 
+// ── Resumen del día (legacy, usado por la home admin) ─────────────
 const getResumenDelDia = async () => {
   const [cotizaciones, instaladores, plotters, alertas] = await Promise.all([
     getCotizacionesDelDia(),
@@ -71,4 +73,100 @@ const getAlertasPendientes = async () => {
   return result.rows;
 };
 
-module.exports = { getResumenDelDia };
+// ── Reportería extendida ──────────────────────────────────────────
+const PERIODOS = {
+  hoy:    "DATE_TRUNC('day',   NOW())",
+  semana: "DATE_TRUNC('week',  NOW())",
+  mes:    "DATE_TRUNC('month', NOW())",
+};
+
+/**
+ * Construye un reporte agregado para el panel de admin.
+ * @param {('hoy'|'semana'|'mes')} periodo
+ */
+const getReportes = async (periodo = 'hoy') => {
+  if (!PERIODOS[periodo]) {
+    throw new AppError('Periodo inválido. Usa: hoy | semana | mes', 400);
+  }
+  const desde = PERIODOS[periodo];
+
+  const [
+    cotizacionesPorEstado,
+    serieDiaria,
+    topInstaladores,
+    tiempoPromedioAprobacion,
+    alertasPorPlotter,
+    facturacion,
+  ] = await Promise.all([
+    query(
+      `SELECT estado, COUNT(*)::int AS total, COALESCE(SUM(total), 0) AS monto
+         FROM cotizacion
+        WHERE fecha >= ${desde}
+        GROUP BY estado`
+    ).then(r => r.rows),
+
+    query(
+      `SELECT DATE(fecha) AS dia,
+              COUNT(*)::int AS total,
+              COUNT(*) FILTER (WHERE estado = 'aprobada')::int AS aprobadas
+         FROM cotizacion
+        WHERE fecha >= ${desde}
+        GROUP BY DATE(fecha)
+        ORDER BY dia ASC`
+    ).then(r => r.rows),
+
+    query(
+      `SELECT ins.id, ins.nombre,
+              COUNT(i.id) FILTER (WHERE i.estado = 'completada')::int AS completadas,
+              COUNT(i.id)::int AS total
+         FROM instalador ins
+         LEFT JOIN instalacion i
+           ON i.instalador_id = ins.id AND i.fecha >= ${desde}
+        WHERE ins.estado = 'activo'
+        GROUP BY ins.id, ins.nombre
+        ORDER BY completadas DESC
+        LIMIT 5`
+    ).then(r => r.rows),
+
+    query(
+      `SELECT AVG(EXTRACT(EPOCH FROM (i.fecha - c.fecha)) / 3600)::numeric(10,2)
+                AS horas_promedio
+         FROM cotizacion c
+         JOIN instalacion i ON i.cotizacion_id = c.id
+        WHERE c.estado = 'aprobada'
+          AND i.estado = 'completada'
+          AND c.fecha >= ${desde}`
+    ).then(r => r.rows[0]?.horas_promedio ?? null),
+
+    query(
+      `SELECT p.id, p.modelo, p.ubicacion,
+              COUNT(a.id)::int                              AS total,
+              COUNT(a.id) FILTER (WHERE a.resuelta)::int    AS resueltas,
+              COUNT(a.id) FILTER (WHERE NOT a.resuelta)::int AS pendientes
+         FROM plotter p
+         LEFT JOIN alerta_iot a
+           ON a.plotter_id = p.id AND a.timestamp >= ${desde}
+        WHERE p.activo = true
+        GROUP BY p.id, p.modelo, p.ubicacion
+        ORDER BY total DESC`
+    ).then(r => r.rows),
+
+    query(
+      `SELECT COALESCE(SUM(total), 0) AS facturado
+         FROM cotizacion
+        WHERE estado = 'aprobada' AND fecha >= ${desde}`
+    ).then(r => r.rows[0]?.facturado ?? 0),
+  ]);
+
+  return {
+    periodo,
+    cotizaciones_por_estado: cotizacionesPorEstado,
+    serie_diaria:            serieDiaria,
+    top_instaladores:        topInstaladores,
+    horas_promedio_instalacion: Number(tiempoPromedioAprobacion) || 0,
+    alertas_por_plotter:     alertasPorPlotter,
+    total_facturado:         Number(facturacion),
+  };
+};
+
+module.exports = { getResumenDelDia, getReportes };

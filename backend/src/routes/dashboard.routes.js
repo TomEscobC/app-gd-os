@@ -9,4 +9,10 @@ router.get('/resumen',
   dashboardController.getResumen
 );
 
+router.get('/reportes',
+  verifyToken,
+  requireRole('admin', 'superadmin'),
+  dashboardController.getReportes
+);
+
 module.exports = router;

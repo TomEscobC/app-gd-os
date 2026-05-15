@@ -46,4 +46,57 @@ const savePushToken = async (userId, rol, pushToken) => {
   await query(`UPDATE ${tabla} SET push_token = $1 WHERE id = $2`, [pushToken, userId]);
 };
 
-module.exports = { login, savePushToken };
+// ── Reset de credenciales demo ────────────────────────────────────
+// Genera contraseñas aleatorias para las cuentas demo y retorna las nuevas.
+// Sólo accesible si el header `x-admin-secret` coincide con ADMIN_SECRET.
+const CUENTAS_DEMO = [
+  { tabla: 'usuario_admin', email: 'admin@globaldesign.cl'   },
+  { tabla: 'usuario_admin', email: 'matias@globaldesign.cl'  },
+  { tabla: 'instalador',    email: 'roberto@globaldesign.cl' },
+  { tabla: 'instalador',    email: 'diego@globaldesign.cl'   },
+];
+
+const generarPassword = (len = 14) => {
+  // Charset legible (sin caracteres ambiguos l/I/1/0/O)
+  const charset = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%';
+  return Array.from({ length: len },
+    () => charset[Math.floor(Math.random() * charset.length)]
+  ).join('');
+};
+
+const resetCredencialesDemo = async (adminSecret) => {
+  if (!process.env.ADMIN_SECRET) {
+    throw new AppError('ADMIN_SECRET no configurado en el servidor', 500);
+  }
+  if (adminSecret !== process.env.ADMIN_SECRET) {
+    throw new AppError('Secret inválido', 403);
+  }
+
+  const resultados = [];
+  for (const { tabla, email } of CUENTAS_DEMO) {
+    const nuevaPassword = generarPassword();
+    const hash = await bcrypt.hash(nuevaPassword, 12);
+
+    const r = await query(
+      `UPDATE ${tabla} SET password_hash = $1 WHERE email = $2 RETURNING email, nombre`,
+      [hash, email]
+    );
+
+    if (r.rowCount > 0) {
+      resultados.push({
+        tabla,
+        email,
+        nombre: r.rows[0].nombre,
+        password_nueva: nuevaPassword,
+      });
+    }
+  }
+
+  return {
+    rotadas: resultados.length,
+    cuentas: resultados,
+    advertencia: 'Guarda estas contraseñas ahora. No volverán a mostrarse.',
+  };
+};
+
+module.exports = { login, savePushToken, resetCredencialesDemo };

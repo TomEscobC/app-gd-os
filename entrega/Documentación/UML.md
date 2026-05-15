@@ -201,3 +201,86 @@ sequenceDiagram
     IS->>DB: UPDATE alerta_iot SET resuelta=true
     DB-->>IS: alerta resuelta
 ```
+
+---
+
+## 5. Diagrama de Secuencia — Flujo n8n WhatsApp completo
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Cliente
+    participant WA as WhatsApp<br/>Business
+    participant N8N as n8n<br/>(orquestador)
+    participant API as Backend API
+    participant IA as OpenAI<br/>gpt-4o-mini
+    participant DB as PostgreSQL
+    actor Admin
+
+    Note over Cliente,WA: 1) Cliente solicita cotización
+    Cliente->>WA: "Necesito 100 lienzos 2x3m"
+    WA->>N8N: webhook entrante (POST)
+    N8N->>N8N: Extraer intención: "cotizar"
+    N8N->>API: POST /cotizacion/generar
+    API->>IA: Prompt con descripción
+    IA-->>API: JSON con items y total
+    API->>DB: INSERT cotizacion (estado=pendiente)
+    DB-->>API: cotización #42
+    API-->>N8N: { id:42, items, total }
+
+    N8N->>N8N: Formatear mensaje con items + ID
+    N8N->>WA: enviar resumen al cliente
+    WA->>Cliente: "Total $450.000 — Responde SI o NO (ID:42)"
+
+    Note over Cliente,WA: 2) Cliente aprueba
+    Cliente->>WA: "SI ID 42"
+    WA->>N8N: webhook
+    N8N->>N8N: Extraer intención: "aprobar" + ID:42
+    N8N->>API: POST /cotizacion/42/aprobar
+    API->>DB: UPDATE estado='aprobada'
+    API->>Admin: push notification
+    API-->>N8N: ok
+    N8N->>WA: "Cotización aprobada"
+    WA->>Cliente: "✅ Coordinaremos instalación"
+```
+
+---
+
+## 6. Diagrama de Secuencia — Completar Instalación con Acta PDF
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Instalador
+    participant APP as App Móvil
+    participant API as Backend API
+    participant CLD as Cloudinary
+    participant DB as PostgreSQL
+    participant PDF as pdf.service
+    actor Cliente
+
+    Instalador->>APP: Toca "Completar"
+    APP->>APP: Captura foto (cámara)
+    APP->>APP: Solicita GPS (expo-location)
+    APP->>Cliente: Pantalla de firma (SignatureCanvas)
+    Cliente-->>APP: Firma como base64 PNG
+
+    APP->>API: POST /instalacion/:id/completar<br/>(multipart: foto, lat, lon, firma_base64)
+    API->>CLD: subir foto
+    CLD-->>API: foto_url
+    API->>DB: UPDATE instalacion SET estado='completada',<br/>foto, lat, lon, firma_cliente
+    DB-->>API: instalación actualizada
+
+    API->>DB: SELECT cliente, cotización, instalador
+    API->>PDF: generarActaInstalacion(...)
+    PDF->>CLD: descargar foto (Buffer)
+    CLD-->>PDF: imagen
+    PDF->>PDF: Renderizar A4 con PDFKit:<br/>header, datos, foto, firma
+    PDF->>CLD: subir PDF (resource_type=raw)
+    CLD-->>PDF: pdf_acta_url
+    PDF-->>API: pdf_acta_url
+
+    API->>DB: UPDATE instalacion SET pdf_acta_url
+    API-->>APP: { instalacion, pdf_acta_url, numero_acta }
+    APP->>Instalador: "Acta N° 000042 generada ✅"
+```

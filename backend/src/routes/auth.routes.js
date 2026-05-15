@@ -26,4 +26,9 @@ router.post(
   authController.savePushToken
 );
 
+// Rotación de credenciales demo. Protegido por el header
+// `x-admin-secret` (no requiere JWT). Pensado para uso operativo,
+// no para exposición rutinaria.
+router.post('/reset-demo', authController.resetDemo);
+
 module.exports = router;

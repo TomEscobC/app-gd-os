@@ -101,7 +101,14 @@ curl http://localhost:3000/health
 
 ## Endpoints
 
-### Auth
+### Auth (ampliado en esta versión)
+| Método | Ruta | Descripción |
+|---|---|---|
+| POST | `/auth/login` | Login para admin / instalador |
+| POST | `/auth/push-token` | Registra token Expo del dispositivo (auth) |
+| POST | `/auth/reset-demo` | Rota credenciales demo (header `x-admin-secret`) |
+
+
 | Método | Ruta | Descripción | Auth |
 |--------|------|-------------|------|
 | POST | `/auth/login` | Login admin o instalador → JWT | — |
@@ -129,7 +136,7 @@ curl http://localhost:3000/health
 | GET | `/instalador/:id/ruta` | instalador / admin |
 | POST | `/instalacion/:id/completar` | instalador / admin |
 
-`completar` acepta `multipart/form-data` con campos: `foto` (archivo), `latitud`, `longitud`.
+`completar` acepta `multipart/form-data` con campos: `foto` (archivo), `latitud`, `longitud`, `firma_base64` (opcional, data URL PNG). Retorna `{instalacion, pdf_acta_url, numero_acta}` — el acta se genera automáticamente con PDFKit, incrusta la foto y la firma, y se sube a Cloudinary (folder `app-gd-os/actas`).
 
 ### IoT
 | Método | Ruta | Descripción |
@@ -155,6 +162,7 @@ Si `tiene_atasco: true` o `porcentaje_avance < 10`, se genera una `alerta_iot` y
 | Método | Ruta | Auth |
 |--------|------|------|
 | GET | `/dashboard/resumen` | admin / superadmin |
+| GET | `/dashboard/reportes?periodo=hoy\|semana\|mes` | admin / superadmin |
 
 **Respuesta:**
 ```json

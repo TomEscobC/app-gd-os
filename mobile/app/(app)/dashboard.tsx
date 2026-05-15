@@ -68,6 +68,7 @@ export default function DashboardScreen() {
           onPress={() => router.push('/(app)/alertas' as any)}
           urgente={!!resumen?.alertas?.length}
         />
+        <AccesoBtn icono="📈" label="Reportes" onPress={() => router.push('/(app)/reportes' as any)} />
       </View>
 
       {/* Alertas activas */}

@@ -28,6 +28,7 @@ erDiagram
         text password_hash
         varchar rol
         varchar telefono
+        text push_token
         timestamptz creado_en
     }
 
@@ -38,6 +39,7 @@ erDiagram
         text password_hash
         text token_jwt
         varchar estado
+        text push_token
         timestamptz creado_en
     }
 
@@ -50,6 +52,8 @@ erDiagram
         float latitud
         float longitud
         varchar estado
+        text firma_cliente
+        text pdf_acta_url
     }
 
     PLOTTER {

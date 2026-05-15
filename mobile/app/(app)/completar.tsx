@@ -45,13 +45,20 @@ export default function CompletarScreen() {
       const form = new FormData();
       form.append('latitud',  String(coords.lat));
       form.append('longitud', String(coords.lon));
+      form.append('firma_base64', firma);
       form.append('foto', { uri: foto, name: `instalacion_${id}.jpg`, type: 'image/jpeg' } as any);
 
-      await api.post(`/instalacion/${id}/completar`, form, {
+      const { data } = await api.post(`/instalacion/${id}/completar`, form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      Alert.alert('¡Instalación completada! ✅', 'Se registró con foto, GPS y firma del cliente.', [
+      const pdfUrl  = data?.data?.pdf_acta_url;
+      const numActa = data?.data?.numero_acta;
+      const msg = pdfUrl
+        ? `Acta N° ${String(numActa).padStart(6, '0')} generada.\nFoto, GPS y firma registrados.`
+        : 'Se registró con foto, GPS y firma del cliente.';
+
+      Alert.alert('¡Instalación completada! ✅', msg, [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (err: any) {

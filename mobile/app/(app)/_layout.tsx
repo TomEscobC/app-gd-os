@@ -30,6 +30,7 @@ export default function AppLayout() {
       <Stack.Screen name="cotizaciones"  options={{ title: 'Cotizaciones' }} />
       <Stack.Screen name="mapa"          options={{ title: 'Instaladores en Terreno' }} />
       <Stack.Screen name="alertas"       options={{ title: 'Alertas IoT' }} />
+      <Stack.Screen name="reportes"      options={{ title: 'Reportes' }} />
     </Stack>
   );
 }

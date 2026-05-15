@@ -18,4 +18,12 @@ const savePushToken = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { login, savePushToken };
+const resetDemo = async (req, res, next) => {
+  try {
+    const secret = req.headers['x-admin-secret'];
+    const result = await authService.resetCredencialesDemo(secret);
+    res.json({ success: true, message: 'Credenciales demo rotadas', data: result });
+  } catch (err) { next(err); }
+};
+
+module.exports = { login, savePushToken, resetDemo };
